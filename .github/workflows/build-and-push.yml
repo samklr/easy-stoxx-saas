@@ -1,0 +1,192 @@
+name: Build and Push to GCR
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: us-central1
+
+jobs:
+  build-backend:
+    name: Build and Push Backend
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run backend tests
+        working-directory: ./backend
+        run: mvn clean test
+
+      - name: Build backend with Maven
+        working-directory: ./backend
+        run: mvn clean package -DskipTests
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+
+      - name: Determine image tag
+        id: image-tag
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "env=prod" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            echo "tag=develop" >> $GITHUB_OUTPUT
+            echo "env=dev" >> $GITHUB_OUTPUT
+          else
+            echo "tag=pr-${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            echo "env=pr" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build Backend Docker Image
+        run: |
+          docker build -t gcr.io/${{ env.GCP_PROJECT_ID }}/hotel-saas-backend:${{ github.sha }} \
+                       -t gcr.io/${{ env.GCP_PROJECT_ID }}/hotel-saas-backend:${{ steps.image-tag.outputs.tag }} \
+                       ./backend
+
+      - name: Push Backend Image to GCR
+        run: |
+          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/hotel-saas-backend:${{ github.sha }}
+          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/hotel-saas-backend:${{ steps.image-tag.outputs.tag }}
+
+      - name: Comment on PR (if PR)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ Backend image built and pushed:\n\`gcr.io/${{ env.GCP_PROJECT_ID }}/hotel-saas-backend:${{ github.sha }}\``
+            })
+
+  build-frontend:
+    name: Build and Push Frontend
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: './frontend/package-lock.json'
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run frontend linter
+        working-directory: ./frontend
+        run: npm run lint || true
+
+      - name: Build frontend (test)
+        working-directory: ./frontend
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8080
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+
+      - name: Determine image tag
+        id: image-tag
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "env=prod" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            echo "tag=develop" >> $GITHUB_OUTPUT
+            echo "env=dev" >> $GITHUB_OUTPUT
+          else
+            echo "tag=pr-${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            echo "env=pr" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build Frontend Docker Image
+        run: |
+          docker build -t gcr.io/${{ env.GCP_PROJECT_ID }}/hotel-saas-frontend:${{ github.sha }} \
+                       -t gcr.io/${{ env.GCP_PROJECT_ID }}/hotel-saas-frontend:${{ steps.image-tag.outputs.tag }} \
+                       ./frontend
+
+      - name: Push Frontend Image to GCR
+        run: |
+          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/hotel-saas-frontend:${{ github.sha }}
+          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/hotel-saas-frontend:${{ steps.image-tag.outputs.tag }}
+
+      - name: Comment on PR (if PR)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ Frontend image built and pushed:\n\`gcr.io/${{ env.GCP_PROJECT_ID }}/hotel-saas-frontend:${{ github.sha }}\``
+            })
+
+  summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend]
+    if: always()
+
+    steps:
+      - name: Check build status
+        run: |
+          if [[ "${{ needs.build-backend.result }}" == "success" && "${{ needs.build-frontend.result }}" == "success" ]]; then
+            echo "✅ All builds successful!"
+            echo "Backend: gcr.io/${{ secrets.GCP_PROJECT_ID }}/hotel-saas-backend:${{ github.sha }}"
+            echo "Frontend: gcr.io/${{ secrets.GCP_PROJECT_ID }}/hotel-saas-frontend:${{ github.sha }}"
+          else
+            echo "❌ Some builds failed"
+            exit 1
+          fi

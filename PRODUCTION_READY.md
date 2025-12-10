@@ -11,6 +11,32 @@ Your Hotel SaaS application is now configured for production deployment on Googl
 
 ## What's Been Configured
 
+### ✅ Infrastructure as Code (Terraform)
+
+1. **Complete Terraform Modules**
+   - Networking: VPC, subnets, Cloud NAT, private service connection
+   - Database: Cloud SQL PostgreSQL with private IP, backups, Secret Manager
+   - Storage: GCS bucket with CORS, lifecycle policies, IAM
+   - Location: [infra/](infra/)
+
+2. **Environment-Specific Configurations**
+   - Dev: Minimal resources for development
+   - Staging: Medium resources for pre-production testing
+   - Production: High-availability resources with regional redundancy
+   - Locations: [infra/environments/{dev,staging,prod}/](infra/environments/)
+
+3. **Database Schema**
+   - Complete schema with tables, indexes, views
+   - Automated triggers for timestamps
+   - Constraints for data integrity
+   - Location: [infra/modules/database/schema.sql](infra/modules/database/schema.sql)
+
+4. **Comprehensive Documentation**
+   - Full Terraform guide with examples
+   - Deployment workflow documentation
+   - Troubleshooting guide
+   - Locations: [infra/README.md](infra/README.md), [infra/TERRAFORM_GUIDE.md](infra/TERRAFORM_GUIDE.md)
+
 ### ✅ Backend (Spring Boot)
 
 1. **Production-optimized Dockerfile**
@@ -85,6 +111,43 @@ Your Hotel SaaS application is now configured for production deployment on Googl
    - Location: [.env.example](.env.example)
 
 ## Quick Start Deployment
+
+### Two Deployment Options
+
+#### Option 1: Terraform (Recommended for Production)
+
+Use Infrastructure as Code for consistent, repeatable deployments:
+
+```bash
+# 1. Install prerequisites
+brew install terraform
+gcloud auth application-default login
+
+# 2. Navigate to infra directory
+cd infra
+
+# 3. Update configuration
+vi environments/dev/terraform.tfvars
+# Set your project_id
+
+# 4. Initialize Terraform
+terraform init
+
+# 5. Deploy infrastructure
+terraform apply -var-file=environments/dev/terraform.tfvars
+
+# 6. Initialize database schema
+./scripts/init-database.sh
+
+# 7. Deploy applications using GitHub Actions
+# See .github/workflows/README.md
+```
+
+**See [infra/README.md](infra/README.md) for detailed Terraform instructions.**
+
+#### Option 2: Manual Deployment (Quick Start)
+
+For quick testing and development:
 
 ### Prerequisites
 
@@ -306,6 +369,10 @@ See the [Troubleshooting section in DEPLOYMENT.md](DEPLOYMENT.md#troubleshooting
 
 ## Support & Documentation
 
+- **Terraform Infrastructure**: [infra/README.md](infra/README.md)
+- **Terraform Guide**: [infra/TERRAFORM_GUIDE.md](infra/TERRAFORM_GUIDE.md)
+- **CI/CD Setup**: [CICD_SETUP.md](CICD_SETUP.md)
+- **GitHub Actions**: [.github/workflows/README.md](.github/workflows/README.md)
 - **Deployment Guide**: [DEPLOYMENT.md](DEPLOYMENT.md)
 - **Cloud Run Docs**: https://cloud.google.com/run/docs
 - **Cloud SQL Docs**: https://cloud.google.com/sql/docs

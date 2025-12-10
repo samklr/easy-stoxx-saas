@@ -1,0 +1,294 @@
+name: Deploy to Cloud Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+      image_tag:
+        description: 'Image tag to deploy (e.g., latest, develop, or commit SHA)'
+        required: true
+        default: 'latest'
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: us-central1
+
+jobs:
+  deploy-backend:
+    name: Deploy Backend to Cloud Run
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    permissions:
+      contents: read
+      id-token: write
+
+    outputs:
+      backend-url: ${{ steps.deploy-backend.outputs.url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set environment variables
+        id: env-vars
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+
+          if [[ "$ENV" == "production" ]]; then
+            echo "service_name=hotel-saas-backend" >> $GITHUB_OUTPUT
+            echo "min_instances=1" >> $GITHUB_OUTPUT
+            echo "max_instances=10" >> $GITHUB_OUTPUT
+            echo "memory=1Gi" >> $GITHUB_OUTPUT
+            echo "cpu=2" >> $GITHUB_OUTPUT
+          elif [[ "$ENV" == "staging" ]]; then
+            echo "service_name=hotel-saas-backend-staging" >> $GITHUB_OUTPUT
+            echo "min_instances=0" >> $GITHUB_OUTPUT
+            echo "max_instances=5" >> $GITHUB_OUTPUT
+            echo "memory=512Mi" >> $GITHUB_OUTPUT
+            echo "cpu=1" >> $GITHUB_OUTPUT
+          else
+            echo "service_name=hotel-saas-backend-dev" >> $GITHUB_OUTPUT
+            echo "min_instances=0" >> $GITHUB_OUTPUT
+            echo "max_instances=3" >> $GITHUB_OUTPUT
+            echo "memory=512Mi" >> $GITHUB_OUTPUT
+            echo "cpu=1" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy Backend to Cloud Run
+        id: deploy-backend
+        run: |
+          gcloud run deploy ${{ steps.env-vars.outputs.service_name }} \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/hotel-saas-backend:${{ github.event.inputs.image_tag }} \
+            --platform managed \
+            --region ${{ env.GCP_REGION }} \
+            --allow-unauthenticated \
+            --add-cloudsql-instances ${{ secrets.CLOUD_SQL_INSTANCE }} \
+            --set-env-vars "SPRING_PROFILES_ACTIVE=prod" \
+            --set-env-vars "CLOUD_SQL_INSTANCE=${{ secrets.CLOUD_SQL_INSTANCE }}" \
+            --set-env-vars "DB_NAME=${{ secrets.DB_NAME }}" \
+            --set-env-vars "DB_USER=${{ secrets.DB_USER }}" \
+            --set-secrets "DB_PASSWORD=db-password:latest" \
+            --set-env-vars "GCS_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" \
+            --set-env-vars "GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}" \
+            --min-instances ${{ steps.env-vars.outputs.min_instances }} \
+            --max-instances ${{ steps.env-vars.outputs.max_instances }} \
+            --memory ${{ steps.env-vars.outputs.memory }} \
+            --cpu ${{ steps.env-vars.outputs.cpu }} \
+            --timeout 300 \
+            --port 8080 \
+            --quiet
+
+      - name: Get Backend URL
+        id: get-backend-url
+        run: |
+          URL=$(gcloud run services describe ${{ steps.env-vars.outputs.service_name }} \
+            --region ${{ env.GCP_REGION }} \
+            --format 'value(status.url)')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "Backend deployed to: $URL"
+
+      - name: Wait for backend to be ready
+        run: |
+          echo "Waiting for backend to be ready..."
+          sleep 15
+
+      - name: Test Backend Health
+        run: |
+          URL="${{ steps.get-backend-url.outputs.url }}"
+          echo "Testing health endpoint: $URL/actuator/health"
+
+          for i in {1..5}; do
+            if curl -f -s "$URL/actuator/health" > /dev/null; then
+              echo "✅ Backend health check passed!"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying..."
+            sleep 10
+          done
+
+          echo "❌ Backend health check failed after 5 attempts"
+          exit 1
+
+      - name: Create deployment annotation
+        run: |
+          gcloud run services update ${{ steps.env-vars.outputs.service_name }} \
+            --region ${{ env.GCP_REGION }} \
+            --update-annotations "deployed-by=github-actions,deployment-time=$(date -u +%Y-%m-%dT%H:%M:%SZ),image-tag=${{ github.event.inputs.image_tag }},commit-sha=${{ github.sha }}" \
+            --quiet
+
+  deploy-frontend:
+    name: Deploy Frontend to Cloud Run
+    runs-on: ubuntu-latest
+    needs: deploy-backend
+    environment: ${{ github.event.inputs.environment }}
+
+    permissions:
+      contents: read
+      id-token: write
+
+    outputs:
+      frontend-url: ${{ steps.deploy-frontend.outputs.url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Set environment variables
+        id: env-vars
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+
+          if [[ "$ENV" == "production" ]]; then
+            echo "service_name=hotel-saas-frontend" >> $GITHUB_OUTPUT
+            echo "min_instances=1" >> $GITHUB_OUTPUT
+            echo "max_instances=10" >> $GITHUB_OUTPUT
+            echo "memory=512Mi" >> $GITHUB_OUTPUT
+            echo "cpu=1" >> $GITHUB_OUTPUT
+          elif [[ "$ENV" == "staging" ]]; then
+            echo "service_name=hotel-saas-frontend-staging" >> $GITHUB_OUTPUT
+            echo "min_instances=0" >> $GITHUB_OUTPUT
+            echo "max_instances=5" >> $GITHUB_OUTPUT
+            echo "memory=512Mi" >> $GITHUB_OUTPUT
+            echo "cpu=1" >> $GITHUB_OUTPUT
+          else
+            echo "service_name=hotel-saas-frontend-dev" >> $GITHUB_OUTPUT
+            echo "min_instances=0" >> $GITHUB_OUTPUT
+            echo "max_instances=3" >> $GITHUB_OUTPUT
+            echo "memory=512Mi" >> $GITHUB_OUTPUT
+            echo "cpu=1" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy Frontend to Cloud Run
+        id: deploy-frontend
+        run: |
+          gcloud run deploy ${{ steps.env-vars.outputs.service_name }} \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/hotel-saas-frontend:${{ github.event.inputs.image_tag }} \
+            --platform managed \
+            --region ${{ env.GCP_REGION }} \
+            --allow-unauthenticated \
+            --set-env-vars "NODE_ENV=production" \
+            --set-env-vars "NEXT_PUBLIC_API_URL=${{ needs.deploy-backend.outputs.backend-url }}" \
+            --min-instances ${{ steps.env-vars.outputs.min_instances }} \
+            --max-instances ${{ steps.env-vars.outputs.max_instances }} \
+            --memory ${{ steps.env-vars.outputs.memory }} \
+            --cpu ${{ steps.env-vars.outputs.cpu }} \
+            --timeout 300 \
+            --port 3000 \
+            --quiet
+
+      - name: Get Frontend URL
+        id: get-frontend-url
+        run: |
+          URL=$(gcloud run services describe ${{ steps.env-vars.outputs.service_name }} \
+            --region ${{ env.GCP_REGION }} \
+            --format 'value(status.url)')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "Frontend deployed to: $URL"
+
+      - name: Wait for frontend to be ready
+        run: |
+          echo "Waiting for frontend to be ready..."
+          sleep 15
+
+      - name: Test Frontend
+        run: |
+          URL="${{ steps.get-frontend-url.outputs.url }}"
+          echo "Testing frontend: $URL"
+
+          for i in {1..5}; do
+            if curl -f -s "$URL" > /dev/null; then
+              echo "✅ Frontend is accessible!"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying..."
+            sleep 10
+          done
+
+          echo "❌ Frontend check failed after 5 attempts"
+          exit 1
+
+      - name: Create deployment annotation
+        run: |
+          gcloud run services update ${{ steps.env-vars.outputs.service_name }} \
+            --region ${{ env.GCP_REGION }} \
+            --update-annotations "deployed-by=github-actions,deployment-time=$(date -u +%Y-%m-%dT%H:%M:%SZ),image-tag=${{ github.event.inputs.image_tag }},commit-sha=${{ github.sha }}" \
+            --quiet
+
+  deployment-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend]
+    if: always()
+
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "# Deployment Summary 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image Tag:** ${{ github.event.inputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit SHA:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.deploy-backend.result }}" == "success" ]]; then
+            echo "✅ **Backend:** Deployed successfully" >> $GITHUB_STEP_SUMMARY
+            echo "   - URL: ${{ needs.deploy-backend.outputs.backend-url }}" >> $GITHUB_STEP_SUMMARY
+            echo "   - Health: ${{ needs.deploy-backend.outputs.backend-url }}/actuator/health" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Backend:** Deployment failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.deploy-frontend.result }}" == "success" ]]; then
+            echo "✅ **Frontend:** Deployed successfully" >> $GITHUB_STEP_SUMMARY
+            echo "   - URL: ${{ needs.deploy-frontend.outputs.frontend-url }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Frontend:** Deployment failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "Deployed by: @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "Time: $(date -u +%Y-%m-%d\ %H:%M:%S\ UTC)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Check overall status
+        run: |
+          if [[ "${{ needs.deploy-backend.result }}" == "success" && "${{ needs.deploy-frontend.result }}" == "success" ]]; then
+            echo "🎉 Deployment completed successfully!"
+            exit 0
+          else
+            echo "💥 Deployment failed!"
+            exit 1
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Deployment to ${{ github.event.inputs.environment }} failed!"
