@@ -1,11 +1,24 @@
 spring:
   application:
-    name: backend
+    name: hotel-saas-backend
 
+  # Import test users configuration
+  config:
+    import:
+      - classpath:test-users.yml
+
+  # Default datasource configuration (local development)
   datasource:
     url: jdbc:postgresql://localhost:5432/hotelsaas
     username: postgres
     password: postgres
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
 
   jpa:
     hibernate:
@@ -13,6 +26,8 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: false
 
   # OAuth2 Configuration (Placeholders for now, to be filled by User or Env Vars)
   # security:
@@ -31,6 +46,11 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
 
+# Server configuration
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+
 # Google Cloud Storage Configuration
 gcs:
   project-id: ${GCS_PROJECT_ID:your-project-id}
@@ -41,6 +61,76 @@ gcs:
 # Logging Configuration
 logging:
   level:
-    org:
-      springframework:
-        security: DEBUG
+    root: INFO
+    com.hotelsaas: INFO
+    org.springframework.web: INFO
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+
+# Management endpoints for health checks
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
+
+---
+# Production profile for Cloud Run + Cloud SQL
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    # Cloud SQL connection using Unix socket
+    url: jdbc:postgresql:///${DB_NAME:hotelsaas}?cloudSqlInstance=${CLOUD_SQL_INSTANCE}&socketFactory=com.google.cloud.sql.postgres.SocketFactory
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      leak-detection-threshold: 60000
+
+  jpa:
+    hibernate:
+      # Use validate in production (migrations handled separately)
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+# Production logging - less verbose
+logging:
+  level:
+    root: INFO
+    com.hotelsaas: INFO
+    org.springframework.web: WARN
+    org.springframework.security: INFO
+    org.hibernate.SQL: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+# Health checks for Cloud Run
+management:
+  endpoint:
+    health:
+      show-details: never
+  endpoints:
+    web:
+      exposure:
+        include: health,info

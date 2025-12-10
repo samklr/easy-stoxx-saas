@@ -1,69 +1,60 @@
 package com.hotelsaas.backend.config;
 
 import com.hotelsaas.backend.model.User;
-import com.hotelsaas.backend.model.UserRole;
-import com.hotelsaas.backend.model.UserStatus;
 import com.hotelsaas.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 
 @Configuration
 @RequiredArgsConstructor
+@EnableConfigurationProperties(TestUsersConfig.class)
 @Slf4j
 public class DataSeeder {
 
     private final UserRepository userRepository;
+    private final TestUsersConfig testUsersConfig;
 
     @Bean
     CommandLineRunner seedDatabase() {
         return args -> {
             // Only seed if no users exist
             if (userRepository.count() == 0) {
-                log.info("Seeding database with initial users...");
+                log.info("Seeding database with test users from configuration...");
 
-                // Create Owner
-                User owner = new User();
-                owner.setName("Gustave H.");
-                owner.setEmail("gustave@grandbudapest.com");
-                owner.setRole(UserRole.ORG_OWNER);
-                owner.setPin("12345");
-                owner.setStatus(UserStatus.ACTIVE);
-                userRepository.save(owner);
-                log.info("Created user: {}", owner.getEmail());
+                if (testUsersConfig.getUsers().isEmpty()) {
+                    log.warn("No test users configured in test-users.yml");
+                    return;
+                }
 
-                // Create Employees
-                User employee1 = new User();
-                employee1.setName("Zero Moustafa");
-                employee1.setEmail("zero@grandbudapest.com");
-                employee1.setRole(UserRole.ORG_EMPLOYEE);
-                employee1.setPin("54321");
-                employee1.setStatus(UserStatus.ACTIVE);
-                userRepository.save(employee1);
-                log.info("Created user: {}", employee1.getEmail());
+                // Create users from YAML configuration
+                int createdCount = 0;
+                for (TestUsersConfig.TestUserData userData : testUsersConfig.getUsers()) {
+                    try {
+                        User user = new User();
+                        user.setName(userData.getName());
+                        user.setEmail(userData.getEmail());
+                        user.setRole(userData.getRoleEnum());
+                        user.setPin(userData.getPin());
+                        user.setStatus(userData.getStatusEnum());
 
-                User employee2 = new User();
-                employee2.setName("Jane Chef");
-                employee2.setEmail("jane@grandbudapest.com");
-                employee2.setRole(UserRole.ORG_EMPLOYEE);
-                employee2.setPin("11111");
-                employee2.setStatus(UserStatus.ACTIVE);
-                userRepository.save(employee2);
-                log.info("Created user: {}", employee2.getEmail());
+                        userRepository.save(user);
+                        createdCount++;
 
-                User employee3 = new User();
-                employee3.setName("Mike Storage");
-                employee3.setEmail("mike@grandbudapest.com");
-                employee3.setRole(UserRole.ORG_EMPLOYEE);
-                employee3.setPin("22222");
-                employee3.setStatus(UserStatus.INACTIVE);
-                userRepository.save(employee3);
-                log.info("Created user: {}", employee3.getEmail());
+                        log.info("Created user: {} ({}) - {}",
+                            user.getEmail(),
+                            user.getRole(),
+                            userData.getDescription());
+                    } catch (Exception e) {
+                        log.error("Failed to create user: {} - {}", userData.getEmail(), e.getMessage());
+                    }
+                }
 
-                log.info("Database seeding completed. Created {} users.", userRepository.count());
+                log.info("Database seeding completed. Created {} out of {} configured users.",
+                    createdCount, testUsersConfig.getUsers().size());
             } else {
                 log.info("Database already contains {} users. Skipping seed.", userRepository.count());
             }

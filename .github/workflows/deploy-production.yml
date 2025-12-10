@@ -1,0 +1,164 @@
+name: Deploy to Google Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: us-central1
+  BACKEND_SERVICE_NAME: hotel-saas-backend
+  FRONTEND_SERVICE_NAME: hotel-saas-frontend
+
+jobs:
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+
+      - name: Build Backend Docker Image
+        run: |
+          docker build -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.BACKEND_SERVICE_NAME }}:${{ github.sha }} \
+                       -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.BACKEND_SERVICE_NAME }}:latest \
+                       ./backend
+
+      - name: Push Backend Image to GCR
+        run: |
+          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.BACKEND_SERVICE_NAME }}:${{ github.sha }}
+          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.BACKEND_SERVICE_NAME }}:latest
+
+      - name: Deploy Backend to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.BACKEND_SERVICE_NAME }} \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.BACKEND_SERVICE_NAME }}:${{ github.sha }} \
+            --platform managed \
+            --region ${{ env.GCP_REGION }} \
+            --allow-unauthenticated \
+            --add-cloudsql-instances ${{ secrets.CLOUD_SQL_INSTANCE }} \
+            --set-env-vars "SPRING_PROFILES_ACTIVE=prod" \
+            --set-env-vars "CLOUD_SQL_INSTANCE=${{ secrets.CLOUD_SQL_INSTANCE }}" \
+            --set-env-vars "DB_NAME=${{ secrets.DB_NAME }}" \
+            --set-env-vars "DB_USER=${{ secrets.DB_USER }}" \
+            --set-secrets "DB_PASSWORD=db-password:latest" \
+            --set-env-vars "GCS_PROJECT_ID=${{ env.GCP_PROJECT_ID }}" \
+            --set-env-vars "GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }}" \
+            --min-instances 0 \
+            --max-instances 10 \
+            --memory 512Mi \
+            --cpu 1 \
+            --timeout 300 \
+            --port 8080
+
+      - name: Get Backend URL
+        id: backend-url
+        run: |
+          URL=$(gcloud run services describe ${{ env.BACKEND_SERVICE_NAME }} \
+            --region ${{ env.GCP_REGION }} \
+            --format 'value(status.url)')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "Backend deployed to: $URL"
+
+      - name: Test Backend Health
+        run: |
+          sleep 10
+          curl -f ${{ steps.backend-url.outputs.url }}/actuator/health || exit 1
+
+    outputs:
+      backend-url: ${{ steps.backend-url.outputs.url }}
+
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: deploy-backend
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for GCR
+        run: gcloud auth configure-docker
+
+      - name: Build Frontend Docker Image
+        env:
+          NEXT_PUBLIC_API_URL: ${{ needs.deploy-backend.outputs.backend-url }}
+        run: |
+          docker build -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.FRONTEND_SERVICE_NAME }}:${{ github.sha }} \
+                       -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.FRONTEND_SERVICE_NAME }}:latest \
+                       --build-arg NEXT_PUBLIC_API_URL=${{ needs.deploy-backend.outputs.backend-url }} \
+                       ./frontend
+
+      - name: Push Frontend Image to GCR
+        run: |
+          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.FRONTEND_SERVICE_NAME }}:${{ github.sha }}
+          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.FRONTEND_SERVICE_NAME }}:latest
+
+      - name: Deploy Frontend to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.FRONTEND_SERVICE_NAME }} \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.FRONTEND_SERVICE_NAME }}:${{ github.sha }} \
+            --platform managed \
+            --region ${{ env.GCP_REGION }} \
+            --allow-unauthenticated \
+            --set-env-vars "NODE_ENV=production" \
+            --set-env-vars "NEXT_PUBLIC_API_URL=${{ needs.deploy-backend.outputs.backend-url }}" \
+            --min-instances 0 \
+            --max-instances 10 \
+            --memory 512Mi \
+            --cpu 1 \
+            --timeout 300 \
+            --port 3000
+
+      - name: Get Frontend URL
+        id: frontend-url
+        run: |
+          URL=$(gcloud run services describe ${{ env.FRONTEND_SERVICE_NAME }} \
+            --region ${{ env.GCP_REGION }} \
+            --format 'value(status.url)')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "Frontend deployed to: $URL"
+
+      - name: Test Frontend
+        run: |
+          sleep 10
+          curl -f ${{ steps.frontend-url.outputs.url }} || exit 1
+
+      - name: Deployment Summary
+        run: |
+          echo "🚀 Deployment Complete!"
+          echo "Backend URL: ${{ needs.deploy-backend.outputs.backend-url }}"
+          echo "Frontend URL: ${{ steps.frontend-url.outputs.url }}"
+          echo "Health Check: ${{ needs.deploy-backend.outputs.backend-url }}/actuator/health"

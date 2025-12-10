@@ -1,0 +1,42 @@
+# Test Users Configuration
+# This file contains test users that will be seeded into the database on startup
+# Only used when no users exist in the database
+
+users:
+  - name: "Gustave H."
+    email: "gustave@grandbudapest.com"
+    role: "ORG_OWNER"
+    pin: "12345"
+    status: "ACTIVE"
+    description: "Hotel owner and manager"
+
+  - name: "Zero Moustafa"
+    email: "zero@grandbudapest.com"
+    role: "ORG_EMPLOYEE"
+    pin: "54321"
+    status: "ACTIVE"
+    description: "Lobby boy and employee"
+
+  - name: "Jane Chef"
+    email: "jane@grandbudapest.com"
+    role: "ORG_EMPLOYEE"
+    pin: "11111"
+    status: "ACTIVE"
+    description: "Chef and kitchen staff"
+
+  - name: "Mike Storage"
+    email: "mike@grandbudapest.com"
+    role: "ORG_EMPLOYEE"
+    pin: "22222"
+    status: "INACTIVE"
+    description: "Inventory manager (inactive account)"
+
+  - name: "Anna Concierge"
+    email: "anna@grandbudapest.com"
+    role: "ORG_EMPLOYEE"
+    pin: "33333"
+    status: "ACTIVE"
+    description: "Front desk staff"
+
+# Note: These users are for testing only and should not be used in production
+# In production, disable seeding or use a separate production seed file
