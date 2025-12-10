@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/hotelsaas
+    username: postgres
+    password: postgres
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # OAuth2 Configuration (Placeholders for now, to be filled by User or Env Vars)
+  # security:
+  #   oauth2:
+  #     client:
+  #       registration:
+  #         google:
+  #           client-id: ${GOOGLE_CLIENT_ID}
+  #           client-secret: ${GOOGLE_CLIENT_SECRET}
+  #     resourceserver:
+  #       jwt:
+  #         issuer-uri: https://accounts.google.com
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+# Google Cloud Storage Configuration
+gcs:
+  project-id: ${GCS_PROJECT_ID:your-project-id}
+  bucket-name: ${GCS_BUCKET_NAME:hotel-saas-images}
+  credentials-path: ${GCS_CREDENTIALS_PATH:}
+  base-url: ${GCS_BASE_URL:https://storage.googleapis.com}
+
+# Logging Configuration
+logging:
+  level:
+    org:
+      springframework:
+        security: DEBUG

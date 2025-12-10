@@ -1,0 +1,131 @@
+{
+  "common": {
+    "add": "Add",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success"
+  },
+  "staff": {
+    "portal": {
+      "title": "Staff Portal",
+      "subtitle": "Manage inventory and track your activities"
+    },
+    "status": {
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "actions": {
+      "stockIn": "Stock In",
+      "stockOut": "Stock Out",
+      "addNewItem": "Add New Item",
+      "createItem": "Create a new inventory item",
+      "searchExisting": "or search existing",
+      "addItem": "Add Item",
+      "signOut": "Sign out",
+      "profile": "Profile",
+      "editProfile": "Edit Profile",
+      "saveChanges": "Save Changes"
+    },
+    "inventory": {
+      "title": "Inventory Items",
+      "subtitle": "Search and manage stock levels",
+      "searchPlaceholder": "Search items, SKU, or category...",
+      "item": "Item",
+      "sku": "SKU",
+      "category": "Category",
+      "quantity": "Quantity",
+      "actions": "Actions",
+      "noItems": "No items found matching",
+      "totalItems": "Total Items",
+      "lowStockItems": "Low Stock Items",
+      "stockInsToday": "Stock Ins Today",
+      "stockOutsToday": "Stock Outs Today",
+      "belowThreshold": "below threshold",
+      "itemsReceived": "items received",
+      "itemsUsed": "items used",
+      "acrossCategories": "across {count} categories"
+    },
+    "dialog": {
+      "stockIn": {
+        "title": "Stock In",
+        "description": "Add new items or update existing inventory",
+        "addNewItem": "Add New Item",
+        "createNew": "Create a new inventory item",
+        "searchItems": "Search items...",
+        "notFound": "Not found - click to create new item",
+        "addItemTitle": "Add \"{name}\""
+      },
+      "stockOut": {
+        "title": "Stock Out",
+        "description": "Search and select an item to remove from inventory",
+        "noItems": "No items found",
+        "tryAgain": "Try a different search term"
+      },
+      "addItem": {
+        "title": "Add New Inventory Item",
+        "description": "Create a new item and add it to your inventory",
+        "itemPhoto": "Item Photo",
+        "uploadPhoto": "Add a photo of the item (optional)",
+        "removePhoto": "Click X to remove photo",
+        "photoRecommendation": "Recommended: Square image, max 5MB",
+        "itemName": "Item Name",
+        "itemNamePlaceholder": "e.g., Premium Vodka",
+        "skuPlaceholder": "e.g., ALC-001",
+        "categoryPlaceholder": "e.g., Alcohol",
+        "initialQuantity": "Initial Quantity",
+        "unit": "Unit",
+        "requiredFields": "* Required fields",
+        "upload": "Upload"
+      },
+      "adjust": {
+        "currentStock": "Current Stock",
+        "newStockLevel": "New Stock Level",
+        "addStock": "Add Stock",
+        "removeStock": "Remove Stock"
+      }
+    },
+    "tabs": {
+      "inventory": "Inventory",
+      "history": "My Actions",
+      "profile": "Profile"
+    },
+    "history": {
+      "title": "My Actions History",
+      "subtitle": "Your recent inventory activities",
+      "noActions": "No actions recorded yet",
+      "units": "units"
+    },
+    "profile": {
+      "fullName": "Full Name",
+      "email": "Email",
+      "emailNote": "Email cannot be changed. Contact your manager.",
+      "role": "Role",
+      "pinCode": "PIN Code",
+      "pinPlaceholder": "5-digit PIN"
+    },
+    "units": {
+      "bottle": "Bottle",
+      "kg": "kg",
+      "liter": "Liter",
+      "pack": "Pack",
+      "roll": "Roll",
+      "box": "Box",
+      "unit": "Unit"
+    },
+    "categories": {
+      "alcohol": "Alcohol",
+      "food": "Food",
+      "housekeeping": "Housekeeping",
+      "beverages": "Beverages"
+    }
+  }
+}

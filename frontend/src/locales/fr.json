@@ -1,0 +1,131 @@
+{
+  "common": {
+    "add": "Ajouter",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "search": "Rechercher",
+    "close": "Fermer",
+    "back": "Retour",
+    "next": "Suivant",
+    "submit": "Soumettre",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès"
+  },
+  "staff": {
+    "portal": {
+      "title": "Portail du Personnel",
+      "subtitle": "Gérez l'inventaire et suivez vos activités"
+    },
+    "status": {
+      "online": "En ligne",
+      "offline": "Hors ligne"
+    },
+    "actions": {
+      "stockIn": "Entrée de Stock",
+      "stockOut": "Sortie de Stock",
+      "addNewItem": "Ajouter un Article",
+      "createItem": "Créer un nouvel article d'inventaire",
+      "searchExisting": "ou rechercher existant",
+      "addItem": "Ajouter l'Article",
+      "signOut": "Se déconnecter",
+      "profile": "Profil",
+      "editProfile": "Modifier le Profil",
+      "saveChanges": "Enregistrer les Modifications"
+    },
+    "inventory": {
+      "title": "Articles d'Inventaire",
+      "subtitle": "Rechercher et gérer les niveaux de stock",
+      "searchPlaceholder": "Rechercher articles, SKU ou catégorie...",
+      "item": "Article",
+      "sku": "SKU",
+      "category": "Catégorie",
+      "quantity": "Quantité",
+      "actions": "Actions",
+      "noItems": "Aucun article trouvé correspondant à",
+      "totalItems": "Total d'Articles",
+      "lowStockItems": "Articles en Rupture",
+      "stockInsToday": "Entrées Aujourd'hui",
+      "stockOutsToday": "Sorties Aujourd'hui",
+      "belowThreshold": "sous le seuil",
+      "itemsReceived": "articles reçus",
+      "itemsUsed": "articles utilisés",
+      "acrossCategories": "dans {count} catégories"
+    },
+    "dialog": {
+      "stockIn": {
+        "title": "Entrée de Stock",
+        "description": "Ajouter de nouveaux articles ou mettre à jour l'inventaire existant",
+        "addNewItem": "Ajouter un Article",
+        "createNew": "Créer un nouvel article d'inventaire",
+        "searchItems": "Rechercher des articles...",
+        "notFound": "Introuvable - cliquer pour créer un nouvel article",
+        "addItemTitle": "Ajouter \"{name}\""
+      },
+      "stockOut": {
+        "title": "Sortie de Stock",
+        "description": "Rechercher et sélectionner un article à retirer de l'inventaire",
+        "noItems": "Aucun article trouvé",
+        "tryAgain": "Essayez un autre terme de recherche"
+      },
+      "addItem": {
+        "title": "Ajouter un Nouvel Article",
+        "description": "Créer un nouvel article et l'ajouter à votre inventaire",
+        "itemPhoto": "Photo de l'Article",
+        "uploadPhoto": "Ajouter une photo de l'article (optionnel)",
+        "removePhoto": "Cliquer sur X pour supprimer la photo",
+        "photoRecommendation": "Recommandé: Image carrée, max 5MB",
+        "itemName": "Nom de l'Article",
+        "itemNamePlaceholder": "ex: Vodka Premium",
+        "skuPlaceholder": "ex: ALC-001",
+        "categoryPlaceholder": "ex: Alcool",
+        "initialQuantity": "Quantité Initiale",
+        "unit": "Unité",
+        "requiredFields": "* Champs obligatoires",
+        "upload": "Télécharger"
+      },
+      "adjust": {
+        "currentStock": "Stock Actuel",
+        "newStockLevel": "Nouveau Niveau de Stock",
+        "addStock": "Ajouter du Stock",
+        "removeStock": "Retirer du Stock"
+      }
+    },
+    "tabs": {
+      "inventory": "Inventaire",
+      "history": "Mes Actions",
+      "profile": "Profil"
+    },
+    "history": {
+      "title": "Historique de Mes Actions",
+      "subtitle": "Vos activités d'inventaire récentes",
+      "noActions": "Aucune action enregistrée",
+      "units": "unités"
+    },
+    "profile": {
+      "fullName": "Nom Complet",
+      "email": "E-mail",
+      "emailNote": "L'e-mail ne peut pas être modifié. Contactez votre responsable.",
+      "role": "Rôle",
+      "pinCode": "Code PIN",
+      "pinPlaceholder": "Code PIN à 5 chiffres"
+    },
+    "units": {
+      "bottle": "Bouteille",
+      "kg": "kg",
+      "liter": "Litre",
+      "pack": "Paquet",
+      "roll": "Rouleau",
+      "box": "Boîte",
+      "unit": "Unité"
+    },
+    "categories": {
+      "alcohol": "Alcool",
+      "food": "Nourriture",
+      "housekeeping": "Entretien",
+      "beverages": "Boissons"
+    }
+  }
+}
